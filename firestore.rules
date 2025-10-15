@@ -1,0 +1,75 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection rules
+    match /users/{userNameSlug} {
+      // Allow anyone to read user documents for slug lookup
+      allow read: if true;
+      
+      // Only authenticated users can create user documents
+      allow create: if request.auth != null;
+      
+      // Only the user themselves can update their document
+      allow update: if request.auth != null && 
+                       request.auth.uid == resource.data.userId;
+      
+      // Only the user themselves can delete their document
+      allow delete: if request.auth != null && 
+                       request.auth.uid == resource.data.userId;
+    }
+    
+    // Gold entries collection rules
+    match /goldEntries/{entryId} {
+      // Only authenticated users can read gold entries
+      allow read: if request.auth != null;
+      
+      // Users can only create gold entries for themselves
+      allow create: if request.auth != null && 
+                     request.auth.uid == request.resource.data.userId &&
+                     request.resource.data.keys().hasAll(['amount', 'notes', 'timestamp', 'userId']) &&
+                     request.resource.data.amount is number &&
+                     request.resource.data.amount > 0 &&
+                     request.resource.data.notes is string &&
+                     request.resource.data.timestamp is timestamp &&
+                     request.resource.data.userId is string;
+      
+      // Users can only update their own gold entries
+      allow update: if request.auth != null && 
+                     request.auth.uid == resource.data.userId &&
+                     request.resource.data.diff(resource.data).affectedKeys().hasAll(['amount', 'notes', 'updatedAt']) &&
+                     request.resource.data.amount is number &&
+                     request.resource.data.amount > 0 &&
+                     request.resource.data.notes is string;
+      
+      // Users can only delete their own gold entries
+      allow delete: if request.auth != null && 
+                     request.auth.uid == resource.data.userId;
+    }
+    
+    // Attendance collection rules
+    match /attendance/{userId}/{documentId} {
+      // Only authenticated users can read attendance logs
+      allow read: if request.auth != null;
+      
+      // Users can only create attendance logs for themselves
+      allow create: if request.auth != null && 
+                     request.auth.uid == userId &&
+                     request.resource.data.keys().hasAny(['loginTimestamp', 'logoutTimestamp']) &&
+                     (request.resource.data.loginTimestamp is timestamp || request.resource.data.loginTimestamp == null) &&
+                     (request.resource.data.logoutTimestamp is timestamp || request.resource.data.logoutTimestamp == null);
+      
+      // Users can only update their own attendance logs
+      allow update: if request.auth != null && 
+                     request.auth.uid == userId;
+      
+      // Users can only delete their own attendance logs
+      allow delete: if request.auth != null && 
+                     request.auth.uid == userId;
+    }
+    
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
