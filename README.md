@@ -1,3 +1,2 @@
 # ai--code
-# ai--code
-Was Here
+Playground for ai coding
